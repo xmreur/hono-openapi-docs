@@ -1,0 +1,64 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches package.json version
+        id: check_version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          echo "Tag version: $TAG_VERSION"
+          echo "package.json version: $PKG_VERSION"
+          if [ "$TAG_VERSION" = "$PKG_VERSION" ]; then
+            echo "matches=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "matches=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ($GITHUB_REF_NAME) does not match package.json version ($PKG_VERSION). Skipping publish."
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.check_version.outputs.matches == 'true'
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        if: steps.check_version.outputs.matches == 'true'
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        if: steps.check_version.outputs.matches == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Check formatting and lint
+        if: steps.check_version.outputs.matches == 'true'
+        run: bun run format:check && bun run lint
+
+      - name: Typecheck
+        if: steps.check_version.outputs.matches == 'true'
+        run: bun run typecheck
+
+      - name: Run tests
+        if: steps.check_version.outputs.matches == 'true'
+        run: bun test
+
+      - name: Build package
+        if: steps.check_version.outputs.matches == 'true'
+        run: bun run build
+
+      - name: Publish to npm via OIDC
+        if: steps.check_version.outputs.matches == 'true'
+        run: npm publish --access public
