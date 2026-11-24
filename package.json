@@ -1,6 +1,6 @@
 {
   "name": "hono-openapi-docs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ergonomic, zero-boilerplate OpenAPI 3.2 documentation for Hono with Standard Schema and router-scoped nested tags",
   "license": "MIT",
   "author": "xmreur",
