@@ -77,12 +77,26 @@ export function binary(
 
 /**
  * Mark a schema to be hoisted into `components.schemas[name]` and referenced via `$ref`.
- * Returns the original schema transparently so it can still be composed (e.g. `z.array(CakeSchema)`)
- * or passed to `validate()`.
+ * Returns the schema transparently so it can still be composed (e.g. `z.array(CakeSchema)`,
+ * `z.object({ 500: ErrorSchema })`) or passed to `validate()`.
+ *
+ * When the schema supports `.meta({ id })` (such as Zod v4), the component ID is also attached
+ * natively so nested/composed references emit `$ref` into `components.schemas` automatically.
  */
 export function ref<S extends StandardJSONSchemaV1>(name: string, schema: S): S {
-  refNameMap.set(schema, name);
-  return schema;
+  let tagged: S = schema;
+  if (typeof (schema as { meta?: unknown }).meta === "function") {
+    try {
+      tagged = (schema as unknown as { meta: (meta: { id: string }) => S }).meta({ id: name });
+    } catch {
+      tagged = schema;
+    }
+  }
+  refNameMap.set(tagged, name);
+  if (tagged !== schema) {
+    refNameMap.set(schema, name);
+  }
+  return tagged;
 }
 
 export function getRefName(schema: unknown): string | undefined {

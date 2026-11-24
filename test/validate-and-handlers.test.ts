@@ -181,9 +181,10 @@ describe("validate() middleware, response & security shorthands, and handlers", 
       { bearerAuth: ["orders:wholesale"] },
     ]);
 
-    // Verify hoisted reusable component schemas
+    // Verify hoisted reusable component schemas (including Pastry used only inside z.array())
     expect(spec.components.schemas.Error).toBeDefined();
     expect(spec.components.schemas.Cake).toBeDefined();
+    expect(spec.components.schemas.Pastry).toBeDefined();
     expect(spec.components.schemas.Order).toBeDefined();
   });
 });

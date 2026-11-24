@@ -36,13 +36,17 @@ export class SchemaRegistry {
     const schemaId = extractComponentId(normalized);
     const componentName = explicitName ?? schemaId;
     if (componentName) {
+      const refTarget = `#/components/schemas/${componentName}`;
+      if (normalized.$ref === refTarget && componentName in this.schemas) {
+        return normalized;
+      }
       const body = { ...normalized };
       delete body.$id;
       delete body.id;
       if (!(componentName in this.schemas)) {
         this.schemas[componentName] = body;
       }
-      return { $ref: `#/components/schemas/${componentName}` };
+      return { $ref: refTarget };
     }
 
     return normalized;
@@ -54,6 +58,10 @@ export class SchemaRegistry {
   register(name: string, input: SchemaInput, io: "input" | "output" = "output"): void {
     const raw = convertStandardToJSON(input, io);
     const normalized = this.normalizeSchema(raw);
+    const refTarget = `#/components/schemas/${name}`;
+    if (normalized.$ref === refTarget && name in this.schemas) {
+      return;
+    }
     delete normalized.$id;
     delete normalized.id;
     this.schemas[name] = normalized;

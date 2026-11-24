@@ -201,4 +201,46 @@ describe("SchemaRegistry & Standard JSON Schema conversion", () => {
       required: ["status"],
     });
   });
+
+  test("hoists ref() schemas used inside composed z.object / z.array / status-map schemas", () => {
+    const ErrorSchema = ref(
+      "Error",
+      z.object({ error: z.string(), message: z.optional(z.string()) }),
+    );
+    const PastrySchema = ref("Pastry", z.object({ id: z.string(), name: z.string() }));
+    const HealthResponse = z.object({
+      200: z.object({ ok: z.boolean() }).describe("Healthy"),
+      500: ErrorSchema,
+    });
+
+    const app = new Hono()
+      .get("/health", doc({ responses: HealthResponse }), (c) => c.json({ ok: true }))
+      .get("/pastries", doc({ responses: { 200: z.array(PastrySchema) } }), (c) => c.json([]));
+
+    const spec = generateSpec(app, {
+      info: { title: "Composed Ref API", version: "1.0.0" },
+      schemas: { Error: ErrorSchema },
+    });
+
+    // Both Error (inside HealthResponse) and Pastry (inside z.array) appear in components.schemas
+    expect(spec.components?.schemas?.Error).toMatchObject({
+      type: "object",
+      required: ["error"],
+    });
+    expect(spec.components?.schemas?.Pastry).toMatchObject({
+      type: "object",
+      required: ["id", "name"],
+    });
+    expect(
+      spec.paths["/health"]?.get?.responses["500"]?.content?.["application/json"]?.schema,
+    ).toEqual({
+      $ref: "#/components/schemas/Error",
+    });
+    expect(
+      spec.paths["/pastries"]?.get?.responses["200"]?.content?.["application/json"]?.schema,
+    ).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/Pastry" },
+    });
+  });
 });
